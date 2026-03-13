@@ -1,0 +1,6 @@
+@CarInsuranceBot_HostAddress = http://localhost:5049
+
+GET {{CarInsuranceBot_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
