@@ -21,6 +21,12 @@ public class PolicyService(IAiService _openAiService) : IPolicyService
         var policyText = await _openAiService.GeneratePolicyTextAsync
             (passportInfo, vehicleInfo, ct);
 
+        policyText = policyText
+            .Replace("**", "")
+            .Replace("*", "")
+            .Replace("##", "")
+            .Replace("#", "");
+
         var pdfBytes = GeneratePdf(policyText);
 
         return new InsurancePolicy
