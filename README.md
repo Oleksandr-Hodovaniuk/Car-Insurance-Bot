@@ -1,36 +1,36 @@
-## Car Insurance Telegram Bot
+## Car Insurance Telegram Bot 🚗📄🤖
 
-This project is an ASP.NET Core 10.0 application that exposes a Telegram webhook endpoint and guides users through purchasing a car insurance policy.  
-The bot uses Groq (OpenAI‑compatible API) for conversational messages and policy text generation, and a (mocked) Mindee service for document OCR.
+This bot helps users **buy car insurance fully inside Telegram**: it asks for passport and vehicle document photos, recognizes the data, lets the user confirm everything, shows the final fixed price, and then sends a **ready‑to‑use PDF policy**.  
+Under the hood, it uses **Groq (OpenAI‑compatible API)** for all conversational responses and policy text generation, and a **mock Mindee OCR service** to simulate document recognition.
 
-### Architecture Overview
+### Architecture Overview 🧱
 
-- **API layer (`CarInsuranceBot`)**: ASP.NET Core Web API that exposes the `/webhook` endpoint for Telegram updates and configures DI and JSON options.
-- **Application layer (`CarInsuranceBot.Application`)**: Contains the state machine (`BotDispatcher`), user session management, handlers for every step, and policy generation logic.
-- **Infrastructure layer (`CarInsuranceBot.Infrastructure`)**: Integrations with external services:
+- **API layer (`CarInsuranceBot`)** 🌐: ASP.NET Core Web API that exposes the `/webhook` endpoint for Telegram updates and configures DI and JSON options.
+- **Application layer (`CarInsuranceBot.Application`)** 🧠: Contains the state machine (`BotDispatcher`), user session management, handlers for every step, and policy generation logic.
+- **Infrastructure layer (`CarInsuranceBot.Infrastructure`)** 🔌: Integrations with external services:
   - `GroqService` (`IAiService`) – calls Groq/OpenAI‑compatible chat API.
   - `MockMindeeService` (`IMindeeService`) – mock OCR for passport and vehicle documents.
-- **Domain layer (`CarInsuranceBot.Domain`)**: Holds core models (`UserSession`, `InsurancePolicy`, `ExtractedDocumentData`) and enums (`BotState`).
+- **Domain layer (`CarInsuranceBot.Domain`)** 📚: Holds core models (`UserSession`, `InsurancePolicy`, `ExtractedDocumentData`) and enums (`BotState`).
 
 ---
 
-### Setup and Dependencies
+### Setup and Dependencies ⚙️
 
-#### Prerequisites
+#### Prerequisites ✅
 
 - **.NET SDK 10.0** (matching the `TargetFramework` in the `.csproj` files).
 - **Telegram bot token** created via BotFather.
 - **Groq/OpenAI‑compatible** API access (URL, API key, model name).
 - Optionally: Mindee account if you replace the mock OCR with a real implementation.
 
-#### Project Structure (short)
+#### Project Structure (short) 📁
 
 - `src/CarInsuranceBot` – Web API (entry point, controllers, configuration).
 - `src/CarInsuranceBot.Application` – handlers, state machine, services, interfaces.
 - `src/CarInsuranceBot.Infrastructure` – external integrations (`GroqService`, `MockMindeeService`).
 - `src/CarInsuranceBot.Domain` – entities, enums, exceptions.
 
-#### Environment Variables / .env.example
+#### Environment Variables / .env.example 🔐
 
 The app loads configuration from an `.env` file in the solution root (see `Program.cs` with `DotNetEnv.Env.Load("../../.env")`) and from environment variables.  
 To avoid committing secrets, this repository should contain a **template** file named `.env.example` that lists all required keys with dummy values.  
@@ -51,7 +51,7 @@ In `.env.example`, include at least the following keys:
   - `GroqAiSettings__Model` – model name (e.g. `llama-3.1-8b-instant` or similar).
 
 
-#### Installing Dependencies
+#### Installing Dependencies 📦
 
 From the solution root:
 
@@ -68,7 +68,7 @@ This restores all NuGet packages, including:
 - `Mindee` – SDK for Mindee OCR (currently mocked by `MockMindeeService`).
 - `Microsoft.Extensions.*` – caching and DI abstractions.
 
-#### Running the Bot Locally
+#### Running the Bot Locally 🖥️
 
 From the solution root:
 
@@ -84,7 +84,7 @@ To test end‑to‑end with Telegram you must configure the bot’s webhook URL 
 
 ---
 
-### Telegram Webhook Configuration
+### Telegram Webhook Configuration 🔗
 
 The `BotController` is defined as:
 
@@ -108,7 +108,7 @@ curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
 
 ---
 
-### Detailed Bot Workflow
+### Detailed Bot Workflow 🔄
 
 The core of the dialogue logic is implemented in:
 
@@ -120,7 +120,7 @@ The core of the dialogue logic is implemented in:
   - `PaymentHandler` – price acceptance flow (fixed price of 100 USD).
   - `PolicyHandler` – generation and sending of the final PDF policy.
 
-#### 1. Starting the Conversation (`/start`)
+#### 1. Starting the Conversation (`/start`) 🏁
 
 - User sends `/start` to the Telegram bot.
 - `BotDispatcher`:
@@ -136,7 +136,7 @@ The core of the dialogue logic is implemented in:
   - Sends AI response via `ITelegramBotClient.SendMessage`.
   - Sets session state to `BotState.WaitingForPassport`.
 
-#### 2. Uploading Passport Photo
+#### 2. Uploading Passport Photo 🛂
 
 - In state `WaitingForPassport`, any incoming message is handled by:
   - `DocumentHandler.HandlePassportAsync` → `HandleDocumentAsync(isPassport: true)`.
@@ -154,7 +154,7 @@ The core of the dialogue logic is implemented in:
     - On OCR failure (`DocumentParseException`):
       - Uses AI to apologize and ask the user to retake the photo (better lighting, full document visible).
 
-#### 3. Confirming Passport Data
+#### 3. Confirming Passport Data ✅
 
 - In state `ConfirmingPassportData`, incoming messages go to:
   - `ConfirmHandler.HandleConfirmAsync(isPassport: true)`.
@@ -168,7 +168,7 @@ The core of the dialogue logic is implemented in:
     - Resets state back to `BotState.WaitingForPassport`.
     - Uses AI to apologize and ask the user to retake the passport photo.
 
-#### 4. Uploading Vehicle Document Photo
+#### 4. Uploading Vehicle Document Photo 🚘
 
 - In state `WaitingForVehicleDoc`, incoming messages are handled by:
   - `DocumentHandler.HandleVehicleDocAync` → `HandleDocumentAsync(isPassport: false)`.
@@ -181,7 +181,7 @@ The core of the dialogue logic is implemented in:
     - Ask user to confirm via AI.
     - Set state to `BotState.ConfirmingVehicleData`.
 
-#### 5. Confirming Vehicle Data
+#### 5. Confirming Vehicle Data ✅
 
 - In state `ConfirmingVehicleData`, incoming messages go to:
   - `ConfirmHandler.HandleConfirmAsync(isPassport: false)`.
@@ -195,7 +195,7 @@ The core of the dialogue logic is implemented in:
   - State returns to `BotState.WaitingForVehicleDoc`.
   - AI asks the user to retake the vehicle document photo.
 
-#### 6. Price Confirmation and Payment Step
+#### 6. Price Confirmation and Payment Step 💳
 
 - In state `WaitingForPriceConfirmation`, incoming messages go to `PaymentHandler.HandleAsync`.
 - `PaymentHandler`:
@@ -211,7 +211,7 @@ The core of the dialogue logic is implemented in:
   - If **No** or anything else:
     - Uses AI to explain that the price is fixed at **100 USD** and asks again if the user wants to proceed (`Yes` / `No`).
 
-#### 7. Policy Generation and Delivery
+#### 7. Policy Generation and Delivery 📄
 
 - `PolicyHandler.HandleAsync`:
   - Calls `IPolicyService.GenerateAsync(session)` to create an `InsurancePolicy`.
@@ -228,7 +228,7 @@ The core of the dialogue logic is implemented in:
     - Price and currency.
   - The user session is removed (`ISessionService.Remove`), completing the dialog.
 
-#### 8. Error Handling
+#### 8. Error Handling 🚨
 
 - `BotDispatcher` wraps each update processing in a try/catch:
   - On any unhandled exception:
@@ -238,11 +238,11 @@ The core of the dialogue logic is implemented in:
 
 ---
 
-### Example Interaction Flows
+### Example Interaction Flows 💬
 
 Below are simplified, **ideal‑path** examples (in English) to help understand how the bot behaves.
 
-#### Flow 1: Successful Policy Purchase
+#### Flow 1: Successful Policy Purchase 🎉
 
 1. **User**: `/start`  
    **Bot**: Greets the user, explains it can help purchase car insurance, asks to send a **passport photo**.
@@ -264,7 +264,7 @@ Below are simplified, **ideal‑path** examples (in English) to help understand 
    - Informs that the PDF policy is being generated.
    - Sends the **PDF policy document** as a Telegram file with policy number, validity period and price.
 
-#### Flow 2: Incorrect OCR Data for Passport
+#### Flow 2: Incorrect OCR Data for Passport 🔁
 
 1. **User**: `/start` → bot asks for passport photo.
 2. **User**: sends passport photo.
@@ -275,7 +275,7 @@ Below are simplified, **ideal‑path** examples (in English) to help understand 
    - Asks the user to retake the passport photo with good lighting and full visibility.
    - State goes back to `WaitingForPassport`.
 
-#### Flow 3: User Disagrees with Price
+#### Flow 3: User Disagrees with Price 💸
 
 1. Up to vehicle data confirmation – same as in Flow 1.
 2. **Bot**: “The insurance price is 100 USD. Do you agree to proceed? Reply Yes or No.”
@@ -286,7 +286,7 @@ Below are simplified, **ideal‑path** examples (in English) to help understand 
 
 ---
 
-### Session Management
+### Session Management 🧾
 
 - `SessionService` stores `UserSession` instances in an in‑memory cache (`IMemoryCache`).
 - Each session:
@@ -300,7 +300,7 @@ Below are simplified, **ideal‑path** examples (in English) to help understand 
 
 ---
 
-### Link to the Telegram Bot
+### Link to the Telegram Bot 🤖
 
 Add your public bot link here once deployed:
 
@@ -308,7 +308,7 @@ Add your public bot link here once deployed:
 
 ---
 
-### Notes and Possible Extensions
+### Notes and Possible Extensions 💡
 
 - Replace `MockMindeeService` with a real `Mindee` implementation for production OCR.
 - Add persistence (e.g. database) for issued policies and audit logs.
