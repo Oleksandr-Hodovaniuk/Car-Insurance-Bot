@@ -6,7 +6,7 @@ using DotNetEnv;
 var builder = WebApplication.CreateBuilder(args);
 
 // Load data from .env file.
-Env.Load("../../.env");
+//Env.Load("../../.env");   uncomment for local start up.
 builder.Configuration.AddEnvironmentVariables();
 
 // Add services to the container.
