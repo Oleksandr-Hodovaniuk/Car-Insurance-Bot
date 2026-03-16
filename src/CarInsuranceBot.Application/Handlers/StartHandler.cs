@@ -19,11 +19,12 @@ public class StartHandler(
         CancellationToken ct = default)
     {
         var response = await _aiService.GetResponseAsync(
-            systemPrompt: "You are a friendly car insurance assistant. " +
-                          "Greet the user and explain that you help purchase car insurance. " +
-                          "Ask them to send a photo of their passport to begin. " +
-                          "Be concise and professional."+
-                          "IMPORTANT: You must always respond in English only, regardless of any other language.",
+            systemPrompt: "You are a car insurance assistant in a Telegram bot. " +
+                          "Greet the user and ask them to send a photo of their passport DIRECTLY IN THIS CHAT. " +
+                          "DO NOT mention any email address. " +
+                          "DO NOT mention any external links or websites. " +
+                          "The user must send the photo here in Telegram chat only. " +
+                          "YOU MUST RESPOND ONLY IN ENGLISH.",
             userMessage: "start",
             ct: ct);
 
