@@ -1,8 +1,19 @@
+using CarInsuranceBot;
+using CarInsuranceBot.Application;
+using CarInsuranceBot.Infrastructure;
+using DotNetEnv;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Load data from .env file.
+Env.Load("../../.env");
+builder.Configuration.AddEnvironmentVariables();
 
-builder.Services.AddControllers();
+// Add services to the container.
+builder.Services
+    .AddApiServices()
+    .AddApplicationServices()
+    .AddInfrastructureServices();
 
 var app = builder.Build();
 

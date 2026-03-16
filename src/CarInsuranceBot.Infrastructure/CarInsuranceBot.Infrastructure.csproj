@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Mindee" Version="3.39.0" />
+    <PackageReference Include="OpenAI" Version="2.9.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\CarInsuranceBot.Application\CarInsuranceBot.Application.csproj" />
   </ItemGroup>
 

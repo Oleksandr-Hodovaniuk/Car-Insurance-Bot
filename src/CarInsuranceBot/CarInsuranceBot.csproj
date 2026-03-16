@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DotNetEnv" Version="3.1.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="10.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\CarInsuranceBot.Application\CarInsuranceBot.Application.csproj" />
     <ProjectReference Include="..\CarInsuranceBot.Infrastructure\CarInsuranceBot.Infrastructure.csproj" />
   </ItemGroup>
