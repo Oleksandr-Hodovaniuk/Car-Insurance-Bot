@@ -79,7 +79,7 @@ public class MindeeService : IMindeeService
             var endpoint = new Mindee.Http.CustomEndpoint(
                 endpointName: _vehicleEndpoint,
                 accountName: _accountName,
-                version: "1");
+                version: "2");
 
             var response = await _client
                 .ParseAsync<Mindee.Product.Generated.GeneratedV1>(inputSource, endpoint);
