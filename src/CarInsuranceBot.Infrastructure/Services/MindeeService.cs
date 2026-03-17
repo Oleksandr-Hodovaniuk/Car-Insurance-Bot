@@ -27,17 +27,13 @@ public class MindeeService : IMindeeService
         CancellationToken ct = default)
     {
         try
-        {
-            _logger.LogInformation(
-    "Mindee call: account={Account}, endpoint={Endpoint}, version={Version}",
-    _accountName, _passportEndpoint, "1");
-
+        {       
             var inputSource = new LocalInputSource(photoStream, "passport.jpg");
 
             var endpoint = new Mindee.Http.CustomEndpoint(
                 endpointName: _passportEndpoint,
                 accountName: _accountName,
-                version: "1");
+                version: "2");
 
             var response = await _client
                 .ParseAsync<Mindee.Product.Generated.GeneratedV1>(inputSource, endpoint);
