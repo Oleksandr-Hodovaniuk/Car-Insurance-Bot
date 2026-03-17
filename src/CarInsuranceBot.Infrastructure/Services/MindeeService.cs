@@ -28,6 +28,10 @@ public class MindeeService : IMindeeService
     {
         try
         {
+            _logger.LogInformation(
+    "Mindee call: account={Account}, endpoint={Endpoint}, version={Version}",
+    _accountName, _passportEndpoint, "1");
+
             var inputSource = new LocalInputSource(photoStream, "passport.jpg");
 
             var endpoint = new Mindee.Http.CustomEndpoint(

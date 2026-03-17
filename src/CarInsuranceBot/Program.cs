@@ -14,7 +14,7 @@ builder.Services
     .AddApiServices()
     .AddApplicationServices()
     .AddInfrastructureServices();
-Console.WriteLine($"Mindee key: '{Environment.GetEnvironmentVariable("MindeeSettings__ApiKey")}'");
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
