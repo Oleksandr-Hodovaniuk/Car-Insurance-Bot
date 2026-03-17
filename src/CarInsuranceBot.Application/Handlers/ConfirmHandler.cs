@@ -1,6 +1,7 @@
 ﻿using CarInsuranceBot.Application.Interfaces;
 using CarInsuranceBot.Domain.Enums;
 using CarInsuranceBot.Domain.Models;
+using System.Data;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
@@ -12,6 +13,7 @@ public class ConfirmHandler(
     ITelegramBotClient _botClient,
     ISessionService _sessionService,
     IAiService _aiService)
+    : BaseHandler(_botClient, _aiService)
 {
     public async Task HandleConfirmAsync(
         UserSession session,
@@ -19,6 +21,13 @@ public class ConfirmHandler(
         bool isPassport,
         CancellationToken ct)
     {
+        var docType = isPassport ? "passport" : "vehicle document";
+
+        if (await TryHandleQuestionAsync(
+            message,
+            currentStepHint: $"waiting for user to confirm if {docType} data is correct by replying Yes or No",
+            ct))
+            return;
         var text = (message.Text ?? string.Empty).Trim().ToLower();
 
         if (text is "yes")
@@ -60,25 +69,27 @@ public class ConfirmHandler(
             await _botClient.SendMessage(
                message.Chat.Id, nextMessage, cancellationToken: ct);
         }
-        else
+        else if (text is "no" or "ні" or "n")
         {
-            var docType = isPassport ? "passport" : "vehicle registration document";
-
             session.State = isPassport
                 ? BotState.WaitingForPassport
                 : BotState.WaitingForVehicleDoc;
 
             var retryMsg = await _aiService.GetResponseAsync(
                 systemPrompt: "You are a car insurance assistant. " +
-                             $"The user rejected the extracted {docType} data. " +
-                              "Apologize and ask them to retake the photo " +
-                              "making sure the document is clear and well-lit."+
-                              "IMPORTANT: You must always respond in English only, regardless of any other language.",
+                             $"User rejected {docType} data. Ask them to retake the photo. " +
+                              "RESPOND IN ENGLISH ONLY.",
                 userMessage: "data rejected",
                 ct: ct);
 
-            await _botClient.SendMessage(
-                message.Chat.Id, retryMsg, cancellationToken: ct);
+            await _botClient.SendMessage(message.Chat.Id, retryMsg, cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(message.Chat.Id,
+                "Please reply 'Yes' if the data is correct or 'No' if you'd like to retake the photo.",
+                cancellationToken: ct);
+            return;
         }
         _sessionService.Update(session);
     }

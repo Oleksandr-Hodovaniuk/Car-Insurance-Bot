@@ -14,12 +14,19 @@ public class PaymentHandler(
     ISessionService _sessionService,
     IAiService _aiService,
     PolicyHandler _policyHandler)
+    : BaseHandler(_botClient, _aiService)
 {
     public async Task HandleAsync(
         UserSession session,
         Message message,
         CancellationToken ct)
     {
+        if (await TryHandleQuestionAsync(
+            message,
+            currentStepHint: "waiting for user to confirm the price of 100 USD by replying Yes or No",
+            ct))
+            return;
+
         var text = (message.Text ?? string.Empty).Trim().ToLower();
 
         if (text is "yes")
@@ -44,6 +51,7 @@ public class PaymentHandler(
 
             var processingMsg = await _aiService.GetResponseAsync(
                 systemPrompt: "You are a car insurance assistant. " +
+                              "User agreed to pay 100 USD. " +
                               "The user's details have been shown above. " +
                               "Tell them their PDF policy is being generated and will be sent shortly." +
                               "IMPORTANT: You must always respond in English only, regardless of any other language.",
@@ -55,21 +63,23 @@ public class PaymentHandler(
 
             await _policyHandler.HandleAsync(session, message, ct);
         }
-        else
+        else if (text is "no" or "ні" or "n")
         {
             var fixedPriceMsg = await _aiService.GetResponseAsync(
                 systemPrompt: "You are a car insurance assistant. " +
-                              "The user disagrees with the price of 100 USD. " +
-                              "Apologize and firmly but politely explain that " +
-                              "100 USD is the only available price option. " +
-                              "Ask again if they would like to proceed."+
-                              "Then ask them to confirm if the user is agreed to price by replying 'Yes' or 'No'."+
-                              "IMPORTANT: You must always respond in English only, regardless of any other language.",
+                              "User disagrees with 100 USD price. " +
+                              "Explain 100 USD is the only available price. Ask again. " +
+                              "RESPOND IN ENGLISH ONLY.",
                 userMessage: "disagrees with price",
                 ct: ct);
 
-            await _botClient.SendMessage(
-                message.Chat.Id, fixedPriceMsg, cancellationToken: ct);
+            await _botClient.SendMessage(message.Chat.Id, fixedPriceMsg, cancellationToken: ct);
+        }
+        else
+        {
+            await _botClient.SendMessage(message.Chat.Id,
+                "Please reply 'Yes' to proceed with the purchase or 'No' to decline.",
+               cancellationToken: ct);
         }
     }
 }

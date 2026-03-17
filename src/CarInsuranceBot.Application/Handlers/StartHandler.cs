@@ -12,6 +12,7 @@ public class StartHandler(
     ITelegramBotClient _botClient,
     ISessionService _sessionService,
     IAiService _aiService)
+    : BaseHandler(_botClient, _aiService)
 {
     public async Task HandleAsync(
         UserSession session,

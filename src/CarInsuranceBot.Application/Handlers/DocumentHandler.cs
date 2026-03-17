@@ -2,6 +2,7 @@
 using CarInsuranceBot.Domain.Enums;
 using CarInsuranceBot.Domain.Exceptions;
 using CarInsuranceBot.Domain.Models;
+using System.Data;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
@@ -14,6 +15,7 @@ public class DocumentHandler(
     ISessionService _sessionService,
     IAiService _aiService,
     IMindeeService _mindeeService)
+    : BaseHandler(_botClient, _aiService)
 {
     public async Task HandlePassportAsync(
         UserSession session,
@@ -33,10 +35,16 @@ public class DocumentHandler(
         bool isPassport,
         CancellationToken ct)
     {
+        var docType = isPassport ? "passport" : "vehicle registration document";
+
+        if (await TryHandleQuestionAsync(
+           message,
+           currentStepHint: $"waiting for user to send a photo of their {docType}",
+           ct))
+            return;
+
         if (message.Photo is null)
         {
-            var docType = isPassport ? "passport" : "vehicle registration document";
-
             var reminder = await _aiService.GetResponseAsync(
                 systemPrompt: "You are a car insurance assistant. " +
                               "The user sent text instead of a photo. " +
