@@ -1,5 +1,6 @@
-﻿using CarInsuranceBot.Application.Interfaces;
+using CarInsuranceBot.Application.Interfaces;
 using CarInsuranceBot.Infrastructure.Services;
+using Mindee;
 using Microsoft.Extensions.DependencyInjection;
 using OpenAI;
 using OpenAI.Chat;
@@ -22,6 +23,17 @@ public static class ConfigureServices
             return new TelegramBotClient(token!);
         });
 
+        services.AddSingleton(_ =>
+        {
+            var apiKey = Environment.GetEnvironmentVariable("MindeeSettings__ApiKey");
+
+            if (string.IsNullOrWhiteSpace(apiKey))
+                throw new InvalidOperationException(
+                    "MindeeSettings__ApiKey is not set. Configure it in your environment/.env.");
+
+            return new MindeeClient(apiKey);
+        });
+
         services.AddScoped<ChatClient>(_ =>
         {
             var options = new OpenAIClientOptions
@@ -39,7 +51,7 @@ public static class ConfigureServices
 
         services.AddScoped<IAiService, GroqService>();
 
-        services.AddScoped<IMindeeService, MockMindeeService>();
+        services.AddScoped<IMindeeService, MindeeService>();
 
         return services;
     }
