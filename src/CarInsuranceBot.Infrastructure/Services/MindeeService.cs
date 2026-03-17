@@ -1,28 +1,28 @@
 using CarInsuranceBot.Application.Interfaces;
 using CarInsuranceBot.Domain.Exceptions;
 using CarInsuranceBot.Domain.Models;
+using Microsoft.Extensions.Logging;
 using Mindee;
 using Mindee.Input;
 using Mindee.Product.Passport;
-using Microsoft.Extensions.Logging;
 
-namespace CarInsuranceBot.Infrastructure.Services;
-
-// Real Mindee API implementation.
-// Sends photos to Mindee cloud OCR service and returns extracted data.
 public class MindeeService : IMindeeService
 {
-    private readonly MindeeClient _mindeeClient;
+    private readonly MindeeClient _clientV1;
+    private readonly MindeeClient _clientV2;
     private readonly ILogger<MindeeService> _logger;
 
     public MindeeService(
-        MindeeClient mindeeClient,
+        // Отримуємо фабрику і створюємо два клієнти
+        Func<string, MindeeClient> mindeeClientFactory,
         ILogger<MindeeService> logger)
     {
-        _mindeeClient = mindeeClient;
+        _clientV1 = mindeeClientFactory("v1");
+        _clientV2 = mindeeClientFactory("v2");
         _logger = logger;
     }
 
+    // Паспорт — через V1 клієнт з PassportV1 моделлю
     public async Task<ExtractedDocumentData> ExtractPassportDataAsync(
         Stream photoStream,
         CancellationToken ct = default)
@@ -31,14 +31,12 @@ public class MindeeService : IMindeeService
         {
             var inputSource = new LocalInputSource(photoStream, "passport.jpg");
 
-            var response = await _mindeeClient
-                .ParseAsync<PassportV1>(inputSource);
-
+            // V1 клієнт з V1 токеном — працює з PassportV1
+            var response = await _clientV1.ParseAsync<PassportV1>(inputSource);
             var prediction = response.Document.Inference.Prediction;
 
             if (prediction is null)
-                throw new DocumentParseException(
-                    "Mindee returned empty passport prediction");
+                throw new DocumentParseException("Mindee returned empty passport prediction");
 
             var fields = new Dictionary<string, string>();
 
@@ -65,8 +63,7 @@ public class MindeeService : IMindeeService
 
             if (fields.Count == 0)
                 throw new DocumentParseException(
-                    "No fields could be extracted from passport. " +
-                    "Please retake the photo with better lighting.");
+                    "No fields could be extracted from passport.");
 
             return new ExtractedDocumentData
             {
@@ -74,64 +71,68 @@ public class MindeeService : IMindeeService
                 Fields = fields
             };
         }
-        catch (DocumentParseException)
-        {
-            throw;
-        }
+        catch (DocumentParseException) { throw; }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to extract passport data from Mindee");
-            throw new DocumentParseException(
-                "Failed to extract passport data", ex);
+            throw new DocumentParseException("Failed to extract passport data", ex);
         }
     }
 
+    // Тех-паспорт — через V2 клієнт з кастомною моделлю
     public async Task<ExtractedDocumentData> ExtractVehicleDocDataAsync(
-    Stream photoStream,
-    CancellationToken ct = default)
+        Stream photoStream,
+        CancellationToken ct = default)
     {
         try
         {
             var inputSource = new LocalInputSource(photoStream, "vehicle.jpg");
 
+            // V2 клієнт з V2 токеном — працює з кастомною моделлю
             var endpoint = new Mindee.Http.CustomEndpoint(
                 endpointName: Environment.GetEnvironmentVariable("MindeeSettings__VehicleEndpointName")!,
                 accountName: Environment.GetEnvironmentVariable("MindeeSettings__AccountName")!,
                 version: "1");
 
-            var response = await _mindeeClient
+            var response = await _clientV2
                 .ParseAsync<Mindee.Product.Generated.GeneratedV1>(inputSource, endpoint);
 
-            var rawFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var fields = new Dictionary<string, string>();
 
             if (response?.Document?.Inference?.Prediction?.Fields is { } resultFields)
             {
-                // Custom models can expose arbitrary field names.
-                // We keep them as-is to avoid coupling to a specific document template.
-                foreach (var kv in resultFields)
-                {
-                    var value = kv.Value?.ToString() ?? string.Empty;
-                    if (!string.IsNullOrWhiteSpace(value))
-                        rawFields[kv.Key] = value;
-                }
+                if (resultFields.TryGetValue("a", out var plate))
+                    fields["License Plate"] = plate.ToString() ?? string.Empty;
+
+                if (resultFields.TryGetValue("c1", out var lastName))
+                    fields["Owner Last Name"] = lastName.ToString() ?? string.Empty;
+
+                if (resultFields.TryGetValue("c2", out var firstName))
+                    fields["Owner First Name"] = firstName.ToString() ?? string.Empty;
+
+                if (resultFields.TryGetValue("d1", out var brand))
+                    fields["Brand"] = brand.ToString() ?? string.Empty;
+
+                if (resultFields.TryGetValue("d3", out var model))
+                    fields["Model"] = model.ToString() ?? string.Empty;
+
+                if (resultFields.TryGetValue("e", out var vin))
+                    fields["VIN"] = vin.ToString() ?? string.Empty;
+
+                if (resultFields.TryGetValue("i", out var regDate))
+                    fields["Registration Date"] = regDate.ToString() ?? string.Empty;
+
+                if (resultFields.TryGetValue("b", out var firstReg))
+                    fields["First Registration"] = firstReg.ToString() ?? string.Empty;
             }
 
-            if (rawFields.Count == 0)
+            if (fields.Count == 0)
                 throw new DocumentParseException(
                     "No fields could be extracted from vehicle document.");
 
-            // Normalize common vehicle-registration fields so the rest of the bot
-            // can display consistent labels across different document templates/models.
-            var fields = NormalizeVehicleFields(rawFields);
-
-            // Fallback: if nothing matched our common set, at least return raw fields
-            // so the user can still confirm what the model produced.
-            if (fields.Count == 0)
-                fields = rawFields;
-
             return new ExtractedDocumentData
             {
-                RawText = string.Join("\n", rawFields.Select(f => $"{f.Key}: {f.Value}")),
+                RawText = string.Join("\n", fields.Select(f => $"{f.Key}: {f.Value}")),
                 Fields = fields
             };
         }
@@ -141,66 +142,5 @@ public class MindeeService : IMindeeService
             _logger.LogError(ex, "Failed to extract vehicle document data");
             throw new DocumentParseException("Failed to extract vehicle document data", ex);
         }
-    }
-
-    private static Dictionary<string, string> NormalizeVehicleFields(
-        IReadOnlyDictionary<string, string> raw)
-    {
-        // Pick a stable subset that exists across most vehicle registration documents:
-        // plate, VIN, owner names, make/model, and key dates.
-        //
-        // The alias list below includes Mindee Carte Grise-like keys (a, c1, c2, d1, d3, e, b, i)
-        // and also more explicit custom-field names (license_plate, vin, owner_first_name, ...).
-        var normalized = new Dictionary<string, string>();
-
-        static string? FirstPresent(IReadOnlyDictionary<string, string> src, params string[] keys)
-        {
-            foreach (var k in keys)
-            {
-                if (src.TryGetValue(k, out var v) && !string.IsNullOrWhiteSpace(v) && v != "null")
-                    return v.Trim();
-            }
-            return null;
-        }
-
-        void Add(string label, params string[] keys)
-        {
-            var v = FirstPresent(raw, keys);
-            if (!string.IsNullOrWhiteSpace(v))
-                normalized[label] = v;
-        }
-
-        // License plate / document number (often same on French carte grise: "a" and document_number)
-        Add("License Plate",
-            "license_plate", "plate", "registration_number", "document_number", "a");
-
-        Add("VIN",
-            "vin", "vehicle_identification_number", "e");
-
-        Add("Owner First Name",
-            "owner_first_name", "first_name", "given_name", "c2");
-
-        Add("Owner Last Name",
-            "owner_last_name", "last_name", "surname", "family_name", "c1");
-
-        Add("Owner Address",
-            "owner_address", "address", "c3");
-
-        Add("Make",
-            "make", "brand", "manufacturer", "d1");
-
-        Add("Model",
-            "model", "vehicle_model", "d3");
-
-        Add("Vehicle Category",
-            "category", "vehicle_category", "j", "j1");
-
-        Add("First Registration Date",
-            "first_registration_date", "first_registration", "b");
-
-        Add("Registration Date",
-            "registration_date", "issue_date", "i");
-
-        return normalized;
     }
 }
