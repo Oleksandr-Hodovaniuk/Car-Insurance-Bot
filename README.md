@@ -1,7 +1,7 @@
 ## Car Insurance Telegram Bot 🚗📄🤖
 
 This bot helps users **buy car insurance fully inside Telegram**: it asks for passport and vehicle document photos, recognizes the data, lets the user confirm everything, shows the final fixed price, and then sends a **ready‑to‑use PDF policy**.  
-Under the hood, it uses **Groq (OpenAI‑compatible API)** for all conversational responses and policy text generation, and a **mock Mindee OCR service** to simulate document recognition.
+Under the hood, it uses **Groq (OpenAI‑compatible API)** for all conversational responses and policy text generation, and **Mindee OCR (Document Understanding v2)** to extract passport and vehicle fields from uploaded photos.
 
 ### Architecture Overview 🧱
 
@@ -9,7 +9,7 @@ Under the hood, it uses **Groq (OpenAI‑compatible API)** for all conversationa
 - **Application layer (`CarInsuranceBot.Application`)** 🧠: Contains the state machine (`BotDispatcher`), user session management, handlers for every step, and policy generation logic.
 - **Infrastructure layer (`CarInsuranceBot.Infrastructure`)** 🔌: Integrations with external services:
   - `GroqService` (`IAiService`) – calls Groq/OpenAI‑compatible chat API.
-  - `MockMindeeService` (`IMindeeService`) – mock OCR for passport and vehicle documents.
+  - `MindeeService` (`IMindeeService`) – Mindee Document Understanding v2 OCR for passport and vehicle documents.
 - **Domain layer (`CarInsuranceBot.Domain`)** 📚: Holds core models (`UserSession`, `InsurancePolicy`, `ExtractedDocumentData`) and enums (`BotState`).
 
 ---
@@ -21,13 +21,13 @@ Under the hood, it uses **Groq (OpenAI‑compatible API)** for all conversationa
 - **.NET SDK 10.0** (matching the `TargetFramework` in the `.csproj` files).
 - **Telegram bot token** created via BotFather.
 - **Groq/OpenAI‑compatible** API access (URL, API key, model name).
-- Optionally: Mindee account if you replace the mock OCR with a real implementation.
+- Mindee account (Document Understanding v2) for extracting passport and vehicle fields.
 
 #### Project Structure (short) 📁
 
 - `src/CarInsuranceBot` – Web API (entry point, controllers, configuration).
 - `src/CarInsuranceBot.Application` – handlers, state machine, services, interfaces.
-- `src/CarInsuranceBot.Infrastructure` – external integrations (`GroqService`, `MockMindeeService`).
+- `src/CarInsuranceBot.Infrastructure` – external integrations (`GroqService`, `MindeeService`).
 - `src/CarInsuranceBot.Domain` – entities, enums, exceptions.
 
 #### Environment Variables / .env.example 🔐
@@ -50,6 +50,15 @@ In `.env.example`, include at least the following keys:
   - `GroqAiSettings__ApiKey` – API key for Groq.
   - `GroqAiSettings__Model` – model name (e.g. `llama-3.1-8b-instant` or similar).
 
+- **Mindee (Document Understanding v2)**
+  - `MindeeSettings__ApiKey` – Mindee **v2** API key.
+  - `MindeeSettings__PassportModelId` – Passport DU model id (UUID) used for passport extraction.
+  - `MindeeSettings__VehicleModelId` – Vehicle DU model id (UUID) used for vehicle document extraction.
+
+ Tip: the model ids are visible in the Mindee URL, for example: `https://app.mindee.com/model/<UUID>/...`.
+
+ Important: provide a Mindee **v2** API key in `MindeeSettings__ApiKey` (this project uses `MindeeClientV2`).
+
 
 #### Installing Dependencies 📦
 
@@ -65,7 +74,7 @@ This restores all NuGet packages, including:
 - `DotNetEnv` – load `.env` file.
 - `OpenAI` – client for OpenAI‑compatible / Groq API.
 - `QuestPDF` – PDF generation for the final insurance policy.
-- `Mindee` – SDK for Mindee OCR (currently mocked by `MockMindeeService`).
+- `Mindee` – SDK for Mindee OCR (Document Understanding v2).
 - `Microsoft.Extensions.*` – caching and DI abstractions.
 
 #### Running the Bot Locally 🖥️
@@ -234,7 +243,7 @@ The core of the dialogue logic is implemented in:
   - On any unhandled exception:
     - Logs the error to console.
     - Attempts to send a generic apology message and instructs the user to type `/start` again.
-- Individual services (like `GroqService`, `MockMindeeService`) also log and throw specific exceptions where appropriate.
+- Individual services (like `GroqService`, `MindeeService`) also log and throw specific exceptions where appropriate.
 
 ---
 
@@ -310,7 +319,7 @@ Add your public bot link here once deployed:
 
 ### Notes and Possible Extensions 💡
 
-- Replace `MockMindeeService` with a real `Mindee` implementation for production OCR.
+- (Optional) switch `MockMindeeService` on for local development, and keep `MindeeService` for production OCR.
 - Add persistence (e.g. database) for issued policies and audit logs.
 - Localize prompts and flows to other languages (currently prompts explicitly enforce English responses from AI).
 - Implement richer pricing logic (instead of fixed 100 USD) based on extracted vehicle and driver data.
