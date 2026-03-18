@@ -17,7 +17,8 @@ public class MindeeService : IMindeeService
         _logger = logger;
     }
 
-    private  string PassportModelId = Environment.GetEnvironmentVariable("MindeeSettings__PassportModelId")!;
+    private string PassportModelId = Environment.GetEnvironmentVariable("MindeeSettings__PassportModelId")!;
+    private string VehicleModelId = Environment.GetEnvironmentVariable("MindeeSettings__VehicleModelId")!;
 
     public async Task<ExtractedDocumentData> ExtractPassportDataAsync(
         Stream photoStream,
@@ -57,8 +58,39 @@ public class MindeeService : IMindeeService
         }
     }
 
-    public Task<ExtractedDocumentData> ExtractVehicleDocDataAsync(Stream photoStream, CancellationToken ct = default)
+    public async Task<ExtractedDocumentData> ExtractVehicleDocDataAsync(
+    Stream photoStream,
+    CancellationToken ct = default)
     {
-        throw new NotImplementedException();
+        try
+        {
+            var inputSource = new LocalInputSource(photoStream, "vehicle.jpg");
+            var inferenceParams = new InferenceParameters(modelId: VehicleModelId);
+            var response = await _client.EnqueueAndGetInferenceAsync(inputSource, inferenceParams);
+
+            var fields = new Dictionary<string, string>();
+
+            foreach (var field in response.Inference.Result.Fields)
+            {
+                var value = field.Value?.ToString();
+                if (!string.IsNullOrEmpty(value))
+                    fields[field.Key] = value;
+            }
+
+            if (fields.Count == 0)
+                throw new DocumentParseException("No fields could be extracted from vehicle document.");
+
+            return new ExtractedDocumentData
+            {
+                RawText = string.Join("\n", fields.Select(f => $"{f.Key}: {f.Value}")),
+                Fields = fields
+            };
+        }
+        catch (DocumentParseException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to extract vehicle document data");
+            throw new DocumentParseException("Failed to extract vehicle document data", ex);
+        }
     }
 }
