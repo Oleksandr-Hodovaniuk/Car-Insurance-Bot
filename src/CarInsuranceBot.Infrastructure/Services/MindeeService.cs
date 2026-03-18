@@ -4,6 +4,7 @@ using CarInsuranceBot.Domain.Models;
 using Microsoft.Extensions.Logging;
 using Mindee;
 using Mindee.Input;
+using Mindee.Product.Passport;
 
 public class MindeeService : IMindeeService
 {
@@ -23,36 +24,39 @@ public class MindeeService : IMindeeService
     }
 
     public async Task<ExtractedDocumentData> ExtractPassportDataAsync(
-        Stream photoStream,
-        CancellationToken ct = default)
+    Stream photoStream,
+    CancellationToken ct = default)
     {
         try
-        {       
+        {
             var inputSource = new LocalInputSource(photoStream, "passport.jpg");
 
-            var endpoint = new Mindee.Http.CustomEndpoint(
-                endpointName: _passportEndpoint,
-                accountName: _accountName,
-                version: "2");
+            var response = await _client.ParseAsync<PassportV1>(inputSource);
 
-            var response = await _client
-                .ParseAsync<Mindee.Product.Generated.GeneratedV1>(inputSource, endpoint);
+            var prediction = response.Document.Inference.Prediction;
 
             var fields = new Dictionary<string, string>();
 
-            if (response?.Document?.Inference?.Prediction?.Fields is { } resultFields)
-            {
-                foreach (var field in resultFields)
-                {
-                    var value = field.Value?.ToString();
-                    if (!string.IsNullOrEmpty(value))
-                        fields[field.Key] = value;
-                }
-            }
+            if (!string.IsNullOrEmpty(prediction.Surname.Value))
+                fields["Last Name"] = prediction.Surname.Value;
+
+            if (!string.IsNullOrEmpty(prediction.GivenNames.FirstOrDefault()?.Value))
+                fields["First Name"] = string.Join(" ", prediction.GivenNames.Select(g => g.Value));
+
+            if (!string.IsNullOrEmpty(prediction.IdNumber.Value))
+                fields["Document Number"] = prediction.IdNumber.Value;
+
+            if (!string.IsNullOrEmpty(prediction.Country.Value))
+                fields["Country"] = prediction.Country.Value;
+
+            if (prediction.BirthDate.DateObject.HasValue)
+                fields["Birth Date"] = prediction.BirthDate.DateObject.Value.ToString("yyyy-MM-dd");
+
+            if (prediction.ExpiryDate.DateObject.HasValue)
+                fields["Expiry Date"] = prediction.ExpiryDate.DateObject.Value.ToString("yyyy-MM-dd");
 
             if (fields.Count == 0)
-                throw new DocumentParseException(
-                    "No fields could be extracted from passport.");
+                throw new DocumentParseException("No fields could be extracted from passport.");
 
             return new ExtractedDocumentData
             {
