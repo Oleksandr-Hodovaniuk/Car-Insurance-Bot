@@ -18,8 +18,6 @@ public static class ConfigureServices
         {
             var token = Environment.GetEnvironmentVariable("BotSettings__Token");
 
-            Console.WriteLine($"Telegram token: '{token}'");
-
             return new TelegramBotClient(token!);
         });
 
@@ -28,12 +26,11 @@ public static class ConfigureServices
             var apiKey = Environment.GetEnvironmentVariable("MindeeSettings__ApiKey");
 
             if (string.IsNullOrWhiteSpace(apiKey))
-                throw new InvalidOperationException(
-                    "MindeeSettings__ApiKey is not set. Configure it in your environment/.env.");
+                throw new InvalidOperationException("MindeeSettings__ApiKey is not set.");
 
             Console.WriteLine($"Mindee API Key (first 10 chars): {apiKey[..10]}");
 
-            return new MindeeClient(apiKey);
+            return new MindeeClientV2(apiKey);
         });
 
         services.AddScoped<ChatClient>(_ =>

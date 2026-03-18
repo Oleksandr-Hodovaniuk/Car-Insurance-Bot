@@ -4,56 +4,41 @@ using CarInsuranceBot.Domain.Models;
 using Microsoft.Extensions.Logging;
 using Mindee;
 using Mindee.Input;
-using Mindee.Product.Passport;
+using Mindee.Parsing.V2;
 
 public class MindeeService : IMindeeService
 {
-    private readonly MindeeClient _client;
-    private readonly string _passportEndpoint;
-    private readonly string _vehicleEndpoint;
-    private readonly string _accountName;
+    private readonly MindeeClientV2 _client;
     private readonly ILogger<MindeeService> _logger;
 
-    public MindeeService(MindeeClient client, ILogger<MindeeService> logger)
+    public MindeeService(MindeeClientV2 client, ILogger<MindeeService> logger)
     {
         _client = client;
         _logger = logger;
-        _accountName = Environment.GetEnvironmentVariable("MindeeSettings__AccountName")!;
-        _passportEndpoint = Environment.GetEnvironmentVariable("MindeeSettings__PassportEndpointName")!;
-        _vehicleEndpoint = Environment.GetEnvironmentVariable("MindeeSettings__VehicleEndpointName")!;
     }
 
+    private const string PassportModelId = "4f68e28f-18a3-4ac1-b09d-cf2003a7d971";
+
     public async Task<ExtractedDocumentData> ExtractPassportDataAsync(
-    Stream photoStream,
-    CancellationToken ct = default)
+        Stream photoStream,
+        CancellationToken ct = default)
     {
         try
         {
             var inputSource = new LocalInputSource(photoStream, "passport.jpg");
 
-            var response = await _client.ParseAsync<PassportV1>(inputSource);
+            var inferenceParams = new InferenceParameters(modelId: PassportModelId);
 
-            var prediction = response.Document.Inference.Prediction;
+            var response = await _client.EnqueueAndGetInferenceAsync(inputSource, inferenceParams);
 
             var fields = new Dictionary<string, string>();
 
-            if (!string.IsNullOrEmpty(prediction.Surname.Value))
-                fields["Last Name"] = prediction.Surname.Value;
-
-            if (!string.IsNullOrEmpty(prediction.GivenNames.FirstOrDefault()?.Value))
-                fields["First Name"] = string.Join(" ", prediction.GivenNames.Select(g => g.Value));
-
-            if (!string.IsNullOrEmpty(prediction.IdNumber.Value))
-                fields["Document Number"] = prediction.IdNumber.Value;
-
-            if (!string.IsNullOrEmpty(prediction.Country.Value))
-                fields["Country"] = prediction.Country.Value;
-
-            if (prediction.BirthDate.DateObject.HasValue)
-                fields["Birth Date"] = prediction.BirthDate.DateObject.Value.ToString("yyyy-MM-dd");
-
-            if (prediction.ExpiryDate.DateObject.HasValue)
-                fields["Expiry Date"] = prediction.ExpiryDate.DateObject.Value.ToString("yyyy-MM-dd");
+            foreach (var field in response.Inference.Result.Fields)
+            {
+                var value = field.Value?.ToString();
+                if (!string.IsNullOrEmpty(value))
+                    fields[field.Key] = value;
+            }
 
             if (fields.Count == 0)
                 throw new DocumentParseException("No fields could be extracted from passport.");
@@ -72,66 +57,8 @@ public class MindeeService : IMindeeService
         }
     }
 
-    public async Task<ExtractedDocumentData> ExtractVehicleDocDataAsync(
-        Stream photoStream,
-        CancellationToken ct = default)
+    public Task<ExtractedDocumentData> ExtractVehicleDocDataAsync(Stream photoStream, CancellationToken ct = default)
     {
-        try
-        {
-            var inputSource = new LocalInputSource(photoStream, "vehicle.jpg");
-
-            var endpoint = new Mindee.Http.CustomEndpoint(
-                endpointName: _vehicleEndpoint,
-                accountName: _accountName,
-                version: "2");
-
-            var response = await _client
-                .ParseAsync<Mindee.Product.Generated.GeneratedV1>(inputSource, endpoint);
-
-            var fields = new Dictionary<string, string>();
-
-            if (response?.Document?.Inference?.Prediction?.Fields is { } resultFields)
-            {
-                if (resultFields.TryGetValue("a", out var plate))
-                    fields["License Plate"] = plate.ToString() ?? string.Empty;
-
-                if (resultFields.TryGetValue("c1", out var lastName))
-                    fields["Owner Last Name"] = lastName.ToString() ?? string.Empty;
-
-                if (resultFields.TryGetValue("c2", out var firstName))
-                    fields["Owner First Name"] = firstName.ToString() ?? string.Empty;
-
-                if (resultFields.TryGetValue("d1", out var brand))
-                    fields["Brand"] = brand.ToString() ?? string.Empty;
-
-                if (resultFields.TryGetValue("d3", out var model))
-                    fields["Model"] = model.ToString() ?? string.Empty;
-
-                if (resultFields.TryGetValue("e", out var vin))
-                    fields["VIN"] = vin.ToString() ?? string.Empty;
-
-                if (resultFields.TryGetValue("i", out var regDate))
-                    fields["Registration Date"] = regDate.ToString() ?? string.Empty;
-
-                if (resultFields.TryGetValue("b", out var firstReg))
-                    fields["First Registration"] = firstReg.ToString() ?? string.Empty;
-            }
-
-            if (fields.Count == 0)
-                throw new DocumentParseException(
-                    "No fields could be extracted from vehicle document.");
-
-            return new ExtractedDocumentData
-            {
-                RawText = string.Join("\n", fields.Select(f => $"{f.Key}: {f.Value}")),
-                Fields = fields
-            };
-        }
-        catch (DocumentParseException) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to extract vehicle document data");
-            throw new DocumentParseException("Failed to extract vehicle document data", ex);
-        }
+        throw new NotImplementedException();
     }
 }
