@@ -28,8 +28,6 @@ public static class ConfigureServices
             if (string.IsNullOrWhiteSpace(apiKey))
                 throw new InvalidOperationException("MindeeSettings__ApiKey is not set.");
 
-            Console.WriteLine($"Mindee API Key (first 10 chars): {apiKey[..10]}");
-
             return new MindeeClientV2(apiKey);
         });
 

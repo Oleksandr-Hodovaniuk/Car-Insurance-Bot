@@ -17,7 +17,7 @@ public class MindeeService : IMindeeService
         _logger = logger;
     }
 
-    private const string PassportModelId = "4f68e28f-18a3-4ac1-b09d-cf2003a7d971";
+    private  string PassportModelId = Environment.GetEnvironmentVariable("MindeeSettings__PassportModelId")!;
 
     public async Task<ExtractedDocumentData> ExtractPassportDataAsync(
         Stream photoStream,
