@@ -31,6 +31,8 @@ public static class ConfigureServices
                 throw new InvalidOperationException(
                     "MindeeSettings__ApiKey is not set. Configure it in your environment/.env.");
 
+            Console.WriteLine($"Mindee API Key (first 10 chars): {apiKey[..10]}");
+
             return new MindeeClient(apiKey);
         });
 
