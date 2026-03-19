@@ -32,6 +32,8 @@ public class ConfirmHandler(
 
         if (text is "yes")
         {
+            Console.WriteLine($"[ConfirmHandler] isPassport={isPassport}, confirmed, new State={session.State}");
+
             if (isPassport)
                 session.PassportData!.IsConfirmed = true;
             else

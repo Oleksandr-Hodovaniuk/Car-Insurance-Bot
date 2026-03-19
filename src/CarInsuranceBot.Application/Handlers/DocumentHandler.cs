@@ -35,6 +35,8 @@ public class DocumentHandler(
         bool isPassport,
         CancellationToken ct)
     {
+        Console.WriteLine($"[DocumentHandler] isPassport={isPassport}, State={session.State}, HasPhoto={message.Photo is not null}");
+
         var docType = isPassport ? "passport" : "vehicle registration document";
 
         if (await TryHandleQuestionAsync(
