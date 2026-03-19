@@ -34,18 +34,31 @@ public class ConfirmHandler(
             if (isPassport)
             {
                 session.State = BotState.WaitingForVehicleDoc;
-                await _botClient.SendMessage(
-                    message.Chat.Id,
-                    "Passport data confirmed! ✅\n\nNow please send a photo of your vehicle registration document.",
-                    cancellationToken: ct);
+
+                var nextMsg = await _aiService.GetResponseAsync(
+                    systemPrompt: "You are a car insurance assistant. " +
+                                  "The passport data was confirmed by the user. " +
+                                  "Congratulate them briefly and ask them to send a photo of their vehicle registration document. " +
+                                  "RESPOND IN ENGLISH ONLY.",
+                    userMessage: "passport confirmed",
+                    ct: ct);
+
+                await _botClient.SendMessage(message.Chat.Id, nextMsg, cancellationToken: ct);
             }
             else
             {
                 session.State = BotState.WaitingForPriceConfirmation;
-                await _botClient.SendMessage(
-                    message.Chat.Id,
-                    "Vehicle document confirmed! ✅\n\nThe insurance price is 100 USD. Would you like to proceed with the purchase? Please reply 'Yes' or 'No'.",
-                    cancellationToken: ct);
+
+                var nextMsg = await _aiService.GetResponseAsync(
+                    systemPrompt: "You are a car insurance assistant. " +
+                                  "The vehicle document data was confirmed by the user. " +
+                                  "Inform them the insurance price is 100 USD and ask if they agree to proceed. " +
+                                  "Ask them to reply 'Yes' or 'No'. " +
+                                  "RESPOND IN ENGLISH ONLY.",
+                    userMessage: "vehicle doc confirmed",
+                    ct: ct);
+
+                await _botClient.SendMessage(message.Chat.Id, nextMsg, cancellationToken: ct);
             }
 
             _sessionService.Update(session);
