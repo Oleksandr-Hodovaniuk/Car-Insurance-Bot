@@ -16,18 +16,12 @@ public class ConfirmHandler(
     : BaseHandler(_botClient, _aiService)
 {
     public async Task HandleConfirmAsync(
-        UserSession session,
-        Message message,
-        bool isPassport,
-        CancellationToken ct)
+    UserSession session,
+    Message message,
+    bool isPassport,
+    CancellationToken ct)
     {
         var docType = isPassport ? "passport" : "vehicle document";
-
-        if (await TryHandleQuestionAsync(
-            message,
-            currentStepHint: $"waiting for user to confirm if {docType} data is correct by replying Yes or No",
-            ct))
-            return;
         var text = (message.Text ?? string.Empty).Trim().ToLower();
 
         if (text is "yes")
@@ -40,7 +34,6 @@ public class ConfirmHandler(
             if (isPassport)
             {
                 session.State = BotState.WaitingForVehicleDoc;
-
                 await _botClient.SendMessage(
                     message.Chat.Id,
                     "Passport data confirmed! ✅\n\nNow please send a photo of your vehicle registration document.",
@@ -49,14 +42,17 @@ public class ConfirmHandler(
             else
             {
                 session.State = BotState.WaitingForPriceConfirmation;
-
                 await _botClient.SendMessage(
                     message.Chat.Id,
                     "Vehicle document confirmed! ✅\n\nThe insurance price is 100 USD. Would you like to proceed with the purchase? Please reply 'Yes' or 'No'.",
                     cancellationToken: ct);
             }
+
+            _sessionService.Update(session);
+            return;
         }
-        else if (text is "no" or "ні" or "n")
+
+        if (text is "no" or "ні" or "n")
         {
             session.State = isPassport
                 ? BotState.WaitingForPassport
@@ -70,14 +66,18 @@ public class ConfirmHandler(
                 ct: ct);
 
             await _botClient.SendMessage(message.Chat.Id, retryMsg, cancellationToken: ct);
-        }
-        else
-        {
-            await _botClient.SendMessage(message.Chat.Id,
-                "Please reply 'Yes' if the data is correct or 'No' if you'd like to retake the photo.",
-                cancellationToken: ct);
+            _sessionService.Update(session);
             return;
         }
-        _sessionService.Update(session);
+
+        if (await TryHandleQuestionAsync(
+            message,
+            currentStepHint: $"waiting for user to confirm if {docType} data is correct by replying Yes or No",
+            ct))
+            return;
+
+        await _botClient.SendMessage(message.Chat.Id,
+            "Please reply 'Yes' if the data is correct or 'No' if you'd like to retake the photo.",
+            cancellationToken: ct);
     }
 }
