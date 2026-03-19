@@ -32,44 +32,29 @@ public class ConfirmHandler(
 
         if (text is "yes")
         {
-            Console.WriteLine($"[ConfirmHandler] isPassport={isPassport}, confirmed, new State={session.State}");
-
             if (isPassport)
                 session.PassportData!.IsConfirmed = true;
             else
                 session.VehicleData!.IsConfirmed = true;
 
-            string nextMessage;
-
             if (isPassport)
             {
                 session.State = BotState.WaitingForVehicleDoc;
 
-                nextMessage = await _aiService.GetResponseAsync(
-                    systemPrompt: "You are a car insurance assistant. " +
-                                  "The passport data was confirmed. " +
-                                  "Now ask the user to send a photo of their " +
-                                  "vehicle registration document."+
-                                  "IMPORTANT: You must always respond in English only, regardless of any other language.",
-                    userMessage: "passport confirmed",
-                    ct: ct);
+                await _botClient.SendMessage(
+                    message.Chat.Id,
+                    "Passport data confirmed! ✅\n\nNow please send a photo of your vehicle registration document.",
+                    cancellationToken: ct);
             }
             else
             {
                 session.State = BotState.WaitingForPriceConfirmation;
 
-                nextMessage = await _aiService.GetResponseAsync(
-                    systemPrompt: "You are a car insurance assistant. " +
-                                  "Both documents are confirmed. " +
-                                  "Inform the user that the insurance price is 100 USD. " +
-                                  "Ask if they agree to proceed with the purchase. Reply Yes or No." +
-                                  "IMPORTANT: You must always respond in English only, regardless of any other language.",
-                    userMessage: "vehicle doc confirmed",
-                    ct: ct);
+                await _botClient.SendMessage(
+                    message.Chat.Id,
+                    "Vehicle document confirmed! ✅\n\nThe insurance price is 100 USD. Would you like to proceed with the purchase? Please reply 'Yes' or 'No'.",
+                    cancellationToken: ct);
             }
-
-            await _botClient.SendMessage(
-               message.Chat.Id, nextMessage, cancellationToken: ct);
         }
         else if (text is "no" or "ні" or "n")
         {
